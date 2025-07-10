@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Webcam Screenshot</title>
+</head>
+<body>
+    <h1>Webcam Screenshot for Discord</h1>
+    <p>Enter your Discord User ID: <input type="text" id="userId" placeholder="Your Discord ID"></p>
+    <video id="video" autoplay style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <button onclick="takeScreenshot()">Take Screenshot</button>
+
+    <script>
+        async function startWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                alert("Please allow webcam access.");
+            }
+        }
+
+        async function takeScreenshot() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            const image = canvas.toDataURL('image/jpeg');
+            const userId = document.getElementById('userId').value;
+
+            if (!userId) {
+                alert("Please enter your Discord User ID.");
+                return;
+            }
+
+            // Отправляем снимок на сервер
+            fetch('https://your-server-url/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image, userId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Screenshot sent to server!");
+                console.log('Success:', data);
+            })
+            .catch(err => {
+                alert("Error sending screenshot.");
+                console.error('Error:', err);
+            });
+
+            // Выключаем вебкамеру
+            video.srcObject.getTracks().forEach(track => track.stop());
+        }
+
+        // Запускаем вебкамеру при загрузке страницы
+        window.onload = startWebcam;
+    </script>
+</body>
+</html>
