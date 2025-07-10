@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webcam to Discord</title>
+    <title>Webcam Snapshot</title>
 </head>
 <body>
-    <h1>Webcam Snapshot</h1>
+    <h1>Webcam Snapshot for Discord</h1>
     <video id="webcam" autoplay style="width: 640px; height: 480px;"></video>
     <br>
     <button onclick="takeSnapshot()">Take Snapshot</button>
@@ -24,25 +24,28 @@
             })
             .catch(err => {
                 console.error("Ошибка доступа к камере: ", err);
-                alert("Не удалось получить доступ к веб-камере. Проверьте разрешения.");
+                alert("Не удалось получить доступ к веб-камере.");
             });
 
         // Функция для создания снимка
         function takeSnapshot() {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0);
+            canvas.width = 320; // Уменьшенное разрешение для скорости
+            canvas.height = 240;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
             const imageData = canvas.toDataURL('image/png');
 
-            // Отправка снимка на сервер
-            fetch('https://your-server.com/upload', {
+            // Отправка снимка на сервер (Компьютер 2)
+            fetch('https://your-ngrok-id.ngrok-free.app/upload', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: imageData, discordChannelId: 'YOUR_CHANNEL_ID' })
+                body: JSON.stringify({ image: imageData })
             })
             .then(response => response.json())
-            .then(data => alert('Снимок отправлен!'))
-            .catch(err => console.error('Ошибка отправки: ', err));
+            .then(data => alert(data.message || 'Снимок отправлен!'))
+            .catch(err => {
+                console.error('Ошибка отправки: ', err);
+                alert('Ошибка при отправке снимка.');
+            });
         }
     </script>
 </body>
