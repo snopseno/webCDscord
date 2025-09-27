@@ -10,19 +10,24 @@
         button { padding: 5px 10px; font-size: 16px; }
         #avatar { max-width: 200px; margin-top: 20px; }
         #error { color: red; margin-top: 10px; }
+        #cookieNote { color: gray; font-size: 12px; }
     </style>
 </head>
 <body>
-    <h2>Enter Anixart Profile URL</h2>
+    <h2>Anixart Avatar Fetcher</h2>
     <input type="text" id="profileUrl" placeholder="https://anixart-app.com/profile/14887">
+    <br><br>
+    <input type="text" id="cookieInput" placeholder="Paste cookies here (optional, e.g., __ddg1_=...; __ddg8_=...)">
     <br><br>
     <button onclick="fetchAvatar()">Get Avatar</button>
     <div id="avatar"></div>
     <div id="error"></div>
+    <div id="cookieNote">If avatar doesn't load, copy cookies from your browser (F12 → Network → Cookies) after visiting Anixart.</div>
 
     <script>
         async function fetchAvatar() {
             const urlInput = document.getElementById('profileUrl').value;
+            const cookieInput = document.getElementById('cookieInput').value;
             const errorDiv = document.getElementById('error');
             const avatarDiv = document.getElementById('avatar');
 
@@ -31,25 +36,49 @@
 
             const match = urlInput.match(/\/profile\/(\d+)/);
             if (!match) {
-                errorDiv.textContent = 'Invalid URL format.';
+                errorDiv.textContent = 'Invalid URL format. Use https://anixart-app.com/profile/XXXXX';
                 return;
             }
+            const userId = match[1];
 
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            if (cookieInput) {
+                headers['Cookie'] = cookieInput;
+            }
+
+            const apiUrl = `https://anixart-app.com/api/profile/${userId}`;
             try {
-                const response = await fetch('http://localhost:5000/fetch-avatar', {  // Ваш backend URL
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ profile_url: urlInput })
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: headers
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.json();
-                if (result.avatar_url) {
-                    avatarDiv.innerHTML = `<img src="${result.avatar_url}" alt="Avatar">`;
+                const avatarUrl = result.avatar || result.icon;
+                if (avatarUrl) {
+                    avatarDiv.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
                 } else {
-                    errorDiv.textContent = result.error || 'Avatar not found.';
+                    // Попытка парсинга HTML профиля
+                    const profileResponse = await fetch(urlInput, { headers });
+                    if (!profileResponse.ok) throw new Error(`Profile fetch failed: ${profileResponse.status}`);
+                    const html = await profileResponse.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const avatarImg = doc.querySelector('img.avatar, img[src*="/avatars/"]');
+                    if (avatarImg && avatarImg.src) {
+                        avatarDiv.innerHTML = `<img src="${avatarImg.src}" alt="Avatar">`;
+                    } else {
+                        errorDiv.textContent = 'No avatar found. Try providing cookies.';
+                    }
                 }
             } catch (error) {
-                errorDiv.textContent = `Error: ${error.message}`;
+                errorDiv.textContent = `Error: ${error.message}. Provide cookies if needed.`;
             }
         }
     </script>
