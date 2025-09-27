@@ -23,9 +23,20 @@
     <button onclick="fetchAchievement()">Получить достижение</button>
     <div id="achievement"></div>
     <div id="error"></div>
-    <div id="cookieNote">Скопируйте куки из браузера (F12 → Network → Cookies) после посещения Anixart. Куки истекают ~20 мин.</div>
+    <div id="cookieNote">Скопируйте куки из браузера (F12 → Network → Cookies) после посещения Anixart. Куки истекают через <span id="cookieTimer"></span> мин. (обновите после 10:11 PM EEST).</div>
 
     <script>
+        // Таймер для отслеживания срока действия куки (новый срок: 10:11 PM EEST)
+        function updateTimer() {
+            const expiryTime = new Date('2025-09-27T20:11:00Z').getTime(); // 10:11 PM EEST
+            const now = new Date().getTime();
+            const timeLeft = Math.max(0, Math.floor((expiryTime - now) / 60000)); // Минуты
+            document.getElementById('cookieTimer').textContent = timeLeft;
+            if (timeLeft <= 5) document.getElementById('cookieNote').style.color = 'red'; // Предупреждение за 5 мин
+        }
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
         async function fetchAchievement() {
             const urlInput = document.getElementById('profileUrl').value.trim();
             const cookieInput = document.getElementById('cookieInput').value;
@@ -49,7 +60,7 @@
 
             const requestBody = { profileInput: urlInput }; // Как в форме Anixart
 
-            // Основной эндпоинт (предполагаемый для запроса)
+            // Основной эндпоинт (предполагаемый)
             let achievementUrl = 'https://anixart-app.com/api/achievement/request';
             try {
                 const response = await fetch(achievementUrl, {
@@ -72,17 +83,17 @@
                     var achievementData = await response.json();
                 }
 
-                // Отображение иконки (предполагаемые поля из ответа)
+                // Обработка ответа
                 const achievementIcon = achievementData.icon || achievementData.badge_url || achievementData.image;
                 if (achievementIcon) {
                     achievementDiv.innerHTML = `<img src="${achievementIcon}" alt="Достижение" style="max-width: 200px;"> <p>Код достижения: ${achievementData.code || 'N/A'}</p>`;
-                } else if (achievementData.error === 'limit_reached') {
+                } else if (achievementData.error && achievementData.error.includes('limit')) {
                     errorDiv.innerHTML = '<strong>Достигнут лимит получения достижений. Попробуй позже.</strong>';
                 } else {
                     errorDiv.innerHTML = '<strong>Достижение получено, но иконка не найдена.</strong>';
                 }
             } catch (error) {
-                errorDiv.innerHTML = `<strong>Ошибка: ${error.message}. Проверьте куки или ссылку.</strong>`;
+                errorDiv.innerHTML = `<strong>Ошибка: ${error.message}. Проверьте куки (истекают в 10:11 PM EEST) или ссылку.</strong>`;
             }
         }
     </script>
