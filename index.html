@@ -3,43 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anixart Avatar Fetcher</title>
+    <title>Anixart Achievement Fetcher</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-        input { padding: 5px; font-size: 16px; }
+        input { padding: 5px; font-size: 16px; width: 300px; }
         button { padding: 5px 10px; font-size: 16px; }
-        #avatar { max-width: 200px; margin-top: 20px; }
-        #error { color: red; margin-top: 10px; }
+        #achievement { max-width: 200px; margin-top: 20px; }
+        #error { color: red; margin-top: 10px; background: #fee; padding: 10px; border-radius: 5px; }
         #cookieNote { color: gray; font-size: 12px; }
     </style>
 </head>
 <body>
-    <h2>Anixart Avatar Fetcher</h2>
-    <input type="text" id="profileUrl" placeholder="https://anixart-app.com/profile/14887">
+    <h2>Anixart Achievement Fetcher</h2>
+    <p>Введите ссылку на профиль для получения достижения</p>
+    <input type="text" id="profileUrl" placeholder="https://anixart-app.com/profile/45435">
     <br><br>
-    <input type="text" id="cookieInput" placeholder="Paste cookies here (optional, e.g., __ddg1_=...; __ddg8_=...)">
+    <input type="text" id="cookieInput" placeholder="Paste cookies here (e.g., __ddg1_=...; __ddg8_=...)">
     <br><br>
-    <button onclick="fetchAvatar()">Get Avatar</button>
-    <div id="avatar"></div>
+    <button onclick="fetchAchievement()">Получить достижение</button>
+    <div id="achievement"></div>
     <div id="error"></div>
-    <div id="cookieNote">If avatar doesn't load, copy cookies from your browser (F12 → Network → Cookies) after visiting Anixart.</div>
+    <div id="cookieNote">Скопируйте куки из браузера (F12 → Network → Cookies) после посещения Anixart. Куки истекают ~20 мин.</div>
 
     <script>
-        async function fetchAvatar() {
-            const urlInput = document.getElementById('profileUrl').value;
+        async function fetchAchievement() {
+            const urlInput = document.getElementById('profileUrl').value.trim();
             const cookieInput = document.getElementById('cookieInput').value;
             const errorDiv = document.getElementById('error');
-            const avatarDiv = document.getElementById('avatar');
+            const achievementDiv = document.getElementById('achievement');
 
-            errorDiv.textContent = '';
-            avatarDiv.innerHTML = '';
+            errorDiv.innerHTML = '';
+            achievementDiv.innerHTML = '';
 
-            const match = urlInput.match(/\/profile\/(\d+)/);
-            if (!match) {
-                errorDiv.textContent = 'Invalid URL format. Use https://anixart-app.com/profile/XXXXX';
+            if (!urlInput) {
+                errorDiv.innerHTML = '<strong>Это поле обязательно для заполнения</strong>';
                 return;
             }
-            const userId = match[1];
 
             const headers = {
                 'Content-Type': 'application/json',
@@ -48,37 +47,42 @@
                 headers['Cookie'] = cookieInput;
             }
 
-            const apiUrl = `https://anixart-app.com/api/profile/${userId}`;
+            const requestBody = { profileInput: urlInput }; // Как в форме Anixart
+
+            // Основной эндпоинт (предполагаемый для запроса)
+            let achievementUrl = 'https://anixart-app.com/api/achievement/request';
             try {
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: headers
+                const response = await fetch(achievementUrl, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    // Fallback на ваш пример (если request не работает)
+                    achievementUrl = 'https://anixart-app.com/api/achievement/get';
+                    const fallbackResponse = await fetch(achievementUrl, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({ ...requestBody, code: 'C8V4M-J1X0Z-A3Q9W' }) // Пример кода
+                    });
+                    if (!fallbackResponse.ok) throw new Error(`HTTP ${fallbackResponse.status}: ${fallbackResponse.statusText}`);
+                    var achievementData = await fallbackResponse.json();
+                } else {
+                    var achievementData = await response.json();
                 }
 
-                const result = await response.json();
-                const avatarUrl = result.avatar || result.icon;
-                if (avatarUrl) {
-                    avatarDiv.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+                // Отображение иконки (предполагаемые поля из ответа)
+                const achievementIcon = achievementData.icon || achievementData.badge_url || achievementData.image;
+                if (achievementIcon) {
+                    achievementDiv.innerHTML = `<img src="${achievementIcon}" alt="Достижение" style="max-width: 200px;"> <p>Код достижения: ${achievementData.code || 'N/A'}</p>`;
+                } else if (achievementData.error === 'limit_reached') {
+                    errorDiv.innerHTML = '<strong>Достигнут лимит получения достижений. Попробуй позже.</strong>';
                 } else {
-                    // Попытка парсинга HTML профиля
-                    const profileResponse = await fetch(urlInput, { headers });
-                    if (!profileResponse.ok) throw new Error(`Profile fetch failed: ${profileResponse.status}`);
-                    const html = await profileResponse.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    const avatarImg = doc.querySelector('img.avatar, img[src*="/avatars/"]');
-                    if (avatarImg && avatarImg.src) {
-                        avatarDiv.innerHTML = `<img src="${avatarImg.src}" alt="Avatar">`;
-                    } else {
-                        errorDiv.textContent = 'No avatar found. Try providing cookies.';
-                    }
+                    errorDiv.innerHTML = '<strong>Достижение получено, но иконка не найдена.</strong>';
                 }
             } catch (error) {
-                errorDiv.textContent = `Error: ${error.message}. Provide cookies if needed.`;
+                errorDiv.innerHTML = `<strong>Ошибка: ${error.message}. Проверьте куки или ссылку.</strong>`;
             }
         }
     </script>
