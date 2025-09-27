@@ -3,49 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webcam Snapshot</title>
+    <title>Anixart Avatar Fetcher</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        input { padding: 5px; font-size: 16px; }
+        button { padding: 5px 10px; font-size: 16px; }
+        #avatar { max-width: 200px; margin-top: 20px; }
+        #error { color: red; margin-top: 10px; }
+    </style>
 </head>
 <body>
-    <h1>Webcam Snapshot for Discord</h1>
-    <video id="webcam" autoplay style="width: 640px; height: 480px;"></video>
-    <br>
-    <button onclick="takeSnapshot()">Take Snapshot</button>
-    <canvas id="canvas" style="display: none;"></canvas>
+    <h2>Enter Anixart Profile URL</h2>
+    <input type="text" id="profileUrl" placeholder="https://anixart-app.com/profile/14887">
+    <br><br>
+    <input type="text" id="cookieInput" placeholder="Paste your cookies here (e.g., __ddg1_=...; __ddg8_=...)">
+    <br><br>
+    <button onclick="fetchAvatar()">Get Avatar</button>
+    <div id="avatar"></div>
+    <div id="error"></div>
 
     <script>
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
+        async function fetchAvatar() {
+            const urlInput = document.getElementById('profileUrl').value;
+            const cookieInput = document.getElementById('cookieInput').value;
+            const errorDiv = document.getElementById('error');
+            const avatarDiv = document.getElementById('avatar');
 
-        // Запрашиваем доступ к веб-камере
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
-            })
-            .catch(err => {
-                console.error("Ошибка доступа к камере: ", err);
-                alert("Не удалось получить доступ к веб-камере.");
-            });
+            // Очистка предыдущих данных
+            errorDiv.textContent = '';
+            avatarDiv.innerHTML = '';
 
-        // Функция для создания снимка
-        function takeSnapshot() {
-            canvas.width = 320; // Уменьшенное разрешение для скорости
-            canvas.height = 240;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = canvas.toDataURL('image/png');
+            // Проверка и извлечение ID из URL
+            const match = urlInput.match(/\/profile\/(\d+)/);
+            if (!match) {
+                errorDiv.textContent = 'Invalid URL format. Use https://anixart-app.com/profile/XXXXX';
+                return;
+            }
+            const userId = match[1];
 
-            // Отправка снимка на сервер (Компьютер 2)
-            fetch('https://your-ngrok-id.ngrok-free.app/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: imageData })
-            })
-            .then(response => response.json())
-            .then(data => alert(data.message || 'Снимок отправлен!'))
-            .catch(err => {
-                console.error('Ошибка отправки: ', err);
-                alert('Ошибка при отправке снимка.');
-            });
+            // Заголовки с куки, если они предоставлены
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            if (cookieInput) {
+                headers['Cookie'] = cookieInput;
+            }
+
+            // API-запрос
+            const apiUrl = `https://anixart-app.com/api/profile/${userId}`;
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET', // Используем GET, так как POST может не поддерживаться без тела
+                    headers: headers
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const avatarUrl = result.avatar || result.icon;
+                if (avatarUrl) {
+                    avatarDiv.innerHTML = `<img src="${avatarUrl}" alt="Avatar" id="avatar">`;
+                } else {
+                    errorDiv.textContent = 'No avatar found in API response.';
+                }
+            } catch (error) {
+                errorDiv.textContent = `Error: ${error.message}. Try providing valid cookies or check profile access.`;
+            }
         }
     </script>
 </body>
