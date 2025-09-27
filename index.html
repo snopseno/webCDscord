@@ -16,8 +16,6 @@
     <h2>Enter Anixart Profile URL</h2>
     <input type="text" id="profileUrl" placeholder="https://anixart-app.com/profile/14887">
     <br><br>
-    <input type="text" id="cookieInput" placeholder="Paste your cookies here (e.g., __ddg1_=...; __ddg8_=...)">
-    <br><br>
     <button onclick="fetchAvatar()">Get Avatar</button>
     <div id="avatar"></div>
     <div id="error"></div>
@@ -25,51 +23,33 @@
     <script>
         async function fetchAvatar() {
             const urlInput = document.getElementById('profileUrl').value;
-            const cookieInput = document.getElementById('cookieInput').value;
             const errorDiv = document.getElementById('error');
             const avatarDiv = document.getElementById('avatar');
 
-            // Очистка предыдущих данных
             errorDiv.textContent = '';
             avatarDiv.innerHTML = '';
 
-            // Проверка и извлечение ID из URL
             const match = urlInput.match(/\/profile\/(\d+)/);
             if (!match) {
-                errorDiv.textContent = 'Invalid URL format. Use https://anixart-app.com/profile/XXXXX';
+                errorDiv.textContent = 'Invalid URL format.';
                 return;
             }
-            const userId = match[1];
 
-            // Заголовки с куки, если они предоставлены
-            const headers = {
-                'Content-Type': 'application/json',
-            };
-            if (cookieInput) {
-                headers['Cookie'] = cookieInput;
-            }
-
-            // API-запрос
-            const apiUrl = `https://anixart-app.com/api/profile/${userId}`;
             try {
-                const response = await fetch(apiUrl, {
-                    method: 'GET', // Используем GET, так как POST может не поддерживаться без тела
-                    headers: headers
+                const response = await fetch('http://localhost:5000/fetch-avatar', {  // Ваш backend URL
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile_url: urlInput })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
                 const result = await response.json();
-                const avatarUrl = result.avatar || result.icon;
-                if (avatarUrl) {
-                    avatarDiv.innerHTML = `<img src="${avatarUrl}" alt="Avatar" id="avatar">`;
+                if (result.avatar_url) {
+                    avatarDiv.innerHTML = `<img src="${result.avatar_url}" alt="Avatar">`;
                 } else {
-                    errorDiv.textContent = 'No avatar found in API response.';
+                    errorDiv.textContent = result.error || 'Avatar not found.';
                 }
             } catch (error) {
-                errorDiv.textContent = `Error: ${error.message}. Try providing valid cookies or check profile access.`;
+                errorDiv.textContent = `Error: ${error.message}`;
             }
         }
     </script>
